@@ -29,6 +29,9 @@ app.use(json());
 app.use(cors());
 app.use(middleware.requestLogger);
 
+app.use("/", (_, res) => {
+  res.send("Blog Api");
+});
 app.use("/api/blogs", routerBlog);
 app.use("/api/login", routerLogin);
 app.use("/api/users", routerUser);
