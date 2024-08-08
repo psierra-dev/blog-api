@@ -2,8 +2,22 @@ import {Router} from "express";
 import bcrypt from "bcrypt";
 
 import User from "../models/user.js";
+import middleware from "../utils/middleware.js";
 
 const routerUser = Router();
+
+routerUser.get(
+  "/me",
+  middleware.tokenExtractor,
+  middleware.userExtractor,
+  async (req, res, next) => {
+    try {
+      res.json({user: req.user});
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 routerUser.post("/", async (req, res, next) => {
   const {username, name, password} = req.body;
@@ -43,7 +57,11 @@ routerUser.get("/", async (_, res, next) => {
 routerUser.get("/:id", async (req, res, next) => {
   const {id} = req.params;
   try {
-    const user = await User.findById(id);
+    const user = await User.findById(id).populate("blogs", {
+      title: 1,
+      id: 1,
+      author: 1,
+    });
 
     if (!user) {
       return res.send(404).end();

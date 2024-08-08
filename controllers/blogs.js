@@ -2,6 +2,7 @@ import {Router} from "express";
 import Blog from "../models/blog.js";
 import User from "../models/user.js";
 import middleware from "../utils/middleware.js";
+import Comment from "../models/comment.js";
 
 const routerBlog = Router();
 
@@ -16,7 +17,12 @@ routerBlog.get("/", async (_, res, next) => {
 routerBlog.get("/:id", async (req, res, next) => {
   const {id} = req.params;
   try {
-    const blog = await Blog.findById(id);
+    const blog = await Blog.findById(id)
+      .populate("user", {
+        username: 1,
+        name: 1,
+      })
+      .populate("comments", {content: 1});
 
     if (!blog) {
       return res.send(404).end();
@@ -45,7 +51,14 @@ routerBlog.post(
       user.blogs = user.blogs.concat(savedBlog._id);
       await user.save();
 
-      res.status(201).json(savedBlog);
+      res.status(201).json({
+        ...savedBlog._doc,
+        id: savedBlog._id,
+        user: {
+          username: user.username,
+          name: user.name,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -81,6 +94,31 @@ routerBlog.put(
     }
   }
 );
+
+routerBlog.patch("/:id/likes", async (req, res, next) => {
+  const {user} = req.body;
+  const {id} = req.params;
+
+  try {
+    const blog = await Blog.findById(id);
+
+    console.log(blog.likes.includes(user), "like");
+
+    if (blog.likes.includes(user)) {
+      console.log("user is Like");
+
+      await Blog.updateMany({}, {$pull: {likes: user}});
+    } else {
+      console.log("user is dislike");
+      blog.likes = blog.likes.concat(user);
+      await blog.save();
+    }
+
+    res.send("like success");
+  } catch (error) {
+    next(error);
+  }
+});
 routerBlog.delete(
   "/:id",
   middleware.tokenExtractor,
@@ -103,5 +141,27 @@ routerBlog.delete(
     }
   }
 );
+
+//comments
+routerBlog.post("/:id/comment", async (req, res, next) => {
+  const {id} = req.params;
+  const {content} = req.body;
+  console.log(id);
+
+  try {
+    const blog = await Blog.findById(id);
+    console.log(blog, "blog");
+
+    const comment = new Comment({content, blog: id});
+    const savedComment = await comment.save();
+
+    blog.comments = blog.comments.concat(savedComment._id);
+    await blog.save();
+
+    res.status(201).json(savedComment);
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default routerBlog;
